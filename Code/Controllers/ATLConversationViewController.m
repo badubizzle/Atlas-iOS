@@ -164,6 +164,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         [self configureAddressBarForConversation];
     }
     
+    
+    
     self.canDisableAddressBar = YES;
     if (!self.hasAppeared) {
         [self.collectionView layoutIfNeeded];
@@ -176,11 +178,26 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
+    
+    //NSLog(@"Total messages to display: %@",@(self.lastReadMessageIndex));
+    //NSLog(@"Total unread: %@", @(self.lastReadMessageIndex));
+    
+    if(!self.hasAppeared){
+        if(self.lastReadMessageIndex==0){
+            //section 0 is for load more
+            self.lastReadMessageIndex=1;
+        }
+        if(self.conversationDataSource.totalMessagesToDisplay>0){
+            [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:0  inSection:self.lastReadMessageIndex] atScrollPosition:UICollectionViewScrollPositionBottom animated:NO];
+        }
+        
+    }
     self.hasAppeared = YES;
     
     if (self.addressBarController && !self.addressBarController.isDisabled) {
         [self.addressBarController.addressBarView.addressBarTextView becomeFirstResponder];
     }
+    
 }
 
 - (void)dealloc
@@ -240,8 +257,19 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (!self.conversation) return;
     
     LYRQuery *query = [LYRQuery queryWithQueryableClass:[LYRMessage class]];
-    query.predicate = [LYRPredicate predicateWithProperty:@"conversation" predicateOperator:LYRPredicateOperatorIsEqualTo value:self.conversation];
+    
+    LYRPredicate *mimePredicate = [LYRPredicate predicateWithProperty:@"parts.MIMEType" predicateOperator:LYRPredicateOperatorIsNotEqualTo value:@"text/hope-init"];
+    
+
+    
+    LYRPredicate *convoPredicate = [LYRPredicate predicateWithProperty:@"conversation" predicateOperator:LYRPredicateOperatorIsEqualTo value:self.conversation];
+    
+   query.predicate=[LYRCompoundPredicate compoundPredicateWithType:LYRCompoundPredicateTypeAnd subpredicates:@[mimePredicate, convoPredicate]];
+    
+    // query.predicate = convoPredicate;
+    
     query.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"position" ascending:YES]];
+    
     
     if ([self.dataSource respondsToSelector:@selector(conversationViewController:willLoadWithQuery:)]) {
         query = [self.dataSource conversationViewController:self willLoadWithQuery:query];
@@ -257,7 +285,14 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     self.conversationDataSource.queryController.delegate = self;
     self.queryController = self.conversationDataSource.queryController;
     self.showingMoreMessagesIndicator = NO;
+    self.lastReadMessageIndex = self.conversationDataSource.lastUnreadMessageIndex;
+    
+    
     [self.collectionView reloadData];
+    
+    //NSLog(@"Rows: %@", @([self numberOfSectionsInCollectionView:self.collectionView]));
+    
+    
 }
 
 #pragma mark - Conntroller Setup
@@ -454,7 +489,15 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         [header updateWithAttributedStringForDate:[self attributedStringForMessageDate:message]];
     }
     if ([self shouldDisplaySenderLabelForSection:indexPath.section]) {
-        [header updateWithParticipantName:[self participantNameForMessage:message]];
+        NSString *name =[self participantNameForMessage:message];
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"hh:mm a"];
+        NSString *date = @"";
+        if (message.sentAt){
+            date = [formatter stringFromDate:message.sentAt];
+        }
+        //NSString *time = [message.sentAt time]
+        [header updateWithParticipantName:[NSString stringWithFormat:@"%@ %@", name, date]];
     }
 }
 
@@ -581,12 +624,37 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     // If there's no content in the input field, send the location.
     NSOrderedSet *messages = [self messagesForMediaAttachments:messageInputToolbar.mediaAttachments];
     if (messages.count == 0 && messageInputToolbar.textInputView.text.length == 0) {
-        [self sendLocationMessage];
+        //
+        
+        NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
+        NSString *shouldShare = [userDefault stringForKey:@"cape_share_static_location"];
+        if(!shouldShare || [shouldShare isEqualToString:@"0"]){
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Share Location" message:@"This will share you static location. If you don't want to share your static location with this friend, tap cancel." preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }]];
+            
+            [alert addAction:[UIAlertAction actionWithTitle:@"Share" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                
+                NSUserDefaults *userDefault = [NSUserDefaults standardUserDefaults];
+                [userDefault setObject:@"1" forKey:@"cape_share_static_location"];
+                [userDefault synchronize];
+                
+                [self sendLocationMessage];
+            }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        }else{
+            [self sendLocationMessage];
+        }
+        
     } else {
         for (LYRMessage *message in messages) {
             [self sendMessage:message];
         }
     }
+    
+    
+    
     if (self.addressBarController) [self.addressBarController disable];
 }
 

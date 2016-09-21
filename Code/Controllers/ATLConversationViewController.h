@@ -184,6 +184,8 @@ NS_ASSUME_NONNULL_BEGIN
 */
 @interface ATLConversationViewController : ATLBaseConversationViewController <ATLAddressBarViewControllerDelegate, ATLMessageInputToolbarDelegate, UIActionSheetDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LYRQueryControllerDelegate>
 
+@property(nonatomic)NSInteger lastReadMessageIndex;
+
 ///---------------------------------------
 /// @name Initializing a Controller
 ///---------------------------------------
@@ -261,6 +263,12 @@ NS_ASSUME_NONNULL_BEGIN
  @param message The Message object to send.
  */
 - (void)sendMessage:(LYRMessage *)message;
+
+
+- (BOOL)shouldDisplayDateLabelForSection:(NSUInteger)section;
+
+- (BOOL)shouldDisplaySenderLabelForSection:(NSUInteger)section;
+- (BOOL)shouldDisplayReadReceiptForSection:(NSUInteger)section;
 
 ///---------------------------
 /// @name Configuring Behavior

@@ -65,8 +65,14 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
     self = [super init];
     if (self) {
         NSUInteger numberOfMessagesAvailable = [layerClient countForQuery:query error:nil];
+        
+        
+        
         NSUInteger numberOfMessagesToDisplay = MIN(numberOfMessagesAvailable, ATLQueryControllerPaginationWindow);
     
+        
+        self.totalMessagesToDisplay = numberOfMessagesToDisplay;
+        
         NSError *error = nil;
         _queryController = [layerClient queryControllerWithQuery:query error:&error];
         if (!_queryController) {
@@ -78,7 +84,33 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
         
         self.conversation = LYRConversationDataSourceConversationFromPredicate(query.predicate);
         
+        //get unread messages count
+        //remove last index will be all messages minus total unread messages
+        LYRQuery *unreadQuery = [LYRQuery queryWithQueryableClass:[LYRMessage class]];
+        
+        LYRPredicate *mimePredicate = [LYRPredicate predicateWithProperty:@"parts.MIMEType" predicateOperator:LYRPredicateOperatorIsNotEqualTo value:@"text/hope-init"];
+        
+        LYRPredicate *unreadPredicate = [LYRPredicate predicateWithProperty:@"isUnread" predicateOperator:LYRPredicateOperatorIsEqualTo value:@(YES)];
+        
+        LYRPredicate *userPredicate = [LYRPredicate predicateWithProperty:@"sender.userID" predicateOperator:LYRPredicateOperatorIsNotEqualTo value:layerClient.authenticatedUser.userID];
+        
+        
+        LYRPredicate *convoPredicate = [LYRPredicate predicateWithProperty:@"conversation" predicateOperator:LYRPredicateOperatorIsEqualTo value:self.conversation];
+        
+        unreadQuery.predicate=[LYRCompoundPredicate compoundPredicateWithType:LYRCompoundPredicateTypeAnd subpredicates:@[mimePredicate, convoPredicate, unreadPredicate, userPredicate]];
+        
+        // query.predicate = convoPredicate;
+        
+        //unreadQuery.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"position" ascending:YES]];
+        NSError *err = nil;
+        NSUInteger totalUnread = [layerClient countForQuery:unreadQuery error:&err];
+        NSLog(@"Error: %@",err);
+        NSLog(@"Total unread: %@", @(totalUnread));
+        self.lastUnreadMessageIndex = MAX(0, numberOfMessagesToDisplay-totalUnread);
+        
+        
         BOOL success = [_queryController execute:&error];
+        
         if (!success) NSLog(@"LayerKit failed to execute query with error: %@", error);
     }
     return self;

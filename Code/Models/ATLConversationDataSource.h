@@ -34,6 +34,8 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface ATLConversationDataSource : NSObject
 
+@property(nonatomic)NSInteger lastUnreadMessageIndex;
+@property(nonatomic)NSInteger totalMessagesToDisplay;
 ///---------------------------------------
 /// @name Initializing a Data Source
 ///---------------------------------------

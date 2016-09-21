@@ -194,7 +194,11 @@ LYRMessage *ATLMessageForParts(LYRClient *layerClient, NSArray *messageParts, NS
     defaultConfiguration.sound = pushSound;
     defaultConfiguration.category = ATLUserNotificationDefaultActionsCategoryIdentifier;
     
-    NSDictionary *options = @{ LYRMessageOptionsPushNotificationConfigurationKey: defaultConfiguration };
+    NSMutableDictionary *options = [NSMutableDictionary new];
+    if(pushText){
+        //@{ LYRMessageOptionsPushNotificationConfigurationKey: defaultConfiguration };
+        [options setValue:defaultConfiguration forKey:LYRMessageOptionsPushNotificationConfigurationKey];
+    }
     NSError *error;
     LYRMessage *message = [layerClient newMessageWithParts:messageParts options:options error:&error];
     if (error) {
