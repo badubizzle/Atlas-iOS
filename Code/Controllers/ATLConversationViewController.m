@@ -173,24 +173,19 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (!self.hasAppeared && [[[self class] sharedMediaAttachmentCache] objectForKey:self.conversation.identifier]) {
         [self loadCachedMediaAttachments];
     }
+    
 }
 
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
+    [self.collectionView reloadData];
     
     //NSLog(@"Total messages to display: %@",@(self.lastReadMessageIndex));
     //NSLog(@"Total unread: %@", @(self.lastReadMessageIndex));
     
     if(!self.hasAppeared){
-        if(self.lastReadMessageIndex==0){
-            //section 0 is for load more
-            self.lastReadMessageIndex=1;
-        }
-        if(self.conversationDataSource.totalMessagesToDisplay>0){
-            [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:0  inSection:self.lastReadMessageIndex] atScrollPosition:UICollectionViewScrollPositionBottom animated:NO];
-        }
-        
+        //[self scrollToFirstUnreadOrBottom:NO];
     }
     self.hasAppeared = YES;
     
@@ -198,6 +193,37 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         [self.addressBarController.addressBarView.addressBarTextView becomeFirstResponder];
     }
     
+}
+
+-(void)viewDidLayoutSubviews{
+    [super viewDidLayoutSubviews];
+    if(!self.hasAppeared){
+        [self scrollToFirstUnreadOrBottom:NO];
+    }
+}
+
+-(void)scrollToFirstUnreadOrBottom:(BOOL)animated{
+    if(self.lastReadMessageIndex==0){
+        //section 0 is for load more
+        self.lastReadMessageIndex=1;
+    }
+    if(self.conversationDataSource.totalMessagesToDisplay>0){
+        /*
+         if we have 40 messages to display with 5 unread,
+         lastreadmessageindex will be 35
+         
+         scroll to first unread message
+         index of first unread message will be
+         lastreadmessage+1
+         */
+        
+        if(self.lastReadMessageIndex!=1 && self.lastReadMessageIndex+1<=self.conversationDataSource.totalMessagesToDisplay){
+            [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:0  inSection:self.lastReadMessageIndex+1] atScrollPosition:UICollectionViewScrollPositionNone animated:animated];
+        }else{
+            
+            [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:0  inSection:self.lastReadMessageIndex] atScrollPosition:UICollectionViewScrollPositionNone animated:animated];
+        }
+    }
 }
 
 - (void)dealloc
@@ -260,13 +286,10 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     
     LYRPredicate *mimePredicate = [LYRPredicate predicateWithProperty:@"parts.MIMEType" predicateOperator:LYRPredicateOperatorIsNotEqualTo value:@"text/hope-init"];
     
-
     
     LYRPredicate *convoPredicate = [LYRPredicate predicateWithProperty:@"conversation" predicateOperator:LYRPredicateOperatorIsEqualTo value:self.conversation];
     
-   query.predicate=[LYRCompoundPredicate compoundPredicateWithType:LYRCompoundPredicateTypeAnd subpredicates:@[mimePredicate, convoPredicate]];
-    
-    // query.predicate = convoPredicate;
+   query.predicate=[LYRCompoundPredicate compoundPredicateWithType:LYRCompoundPredicateTypeAnd subpredicates:@[mimePredicate, convoPredicate]];        
     
     query.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"position" ascending:YES]];
     
